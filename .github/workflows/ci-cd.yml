@@ -25,8 +25,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      
-
       - name: Install Terraform
         run: |
           curl -fsSL https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
@@ -40,22 +38,21 @@ jobs:
       - name: Apply Terraform
         run: terraform apply -auto-approve
 
-      - name: Output EC2 ip to file 
+      - name: Output EC2 IP to file 
         run: |
-           terraform output -raw vm_ip > instance_ip.txt
+          terraform output -raw vm_ip > instance_ip.txt
 
-#Upload the ip.txt file to github
       - name: Upload instance IP file as artifact
         uses: actions/upload-artifact@v3
         with:
           name: instance-ip-file
           path: instance_ip.txt
-          
+
   # Ansible Job
   ansible:
     runs-on: ubuntu-latest
 
-    needs: terraform  # validation that this job runs only after the terraform job completes
+    needs: terraform
 
     steps:
       - name: Checkout code
@@ -74,80 +71,53 @@ jobs:
           sudo apt install -y software-properties-common
           sudo add-apt-repository --yes --update ppa:ansible/ansible
           sudo apt install -y ansible
+          sudo apt-get install python3 python3-pip -y
 
-
-      - name: Install Docker (for running the playbook)
-        run: |
-          sudo apt update
-          sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-#download the ip.txt file
       - name: Download instance IP file
         uses: actions/download-artifact@v3
         with:
           name: instance-ip-file
-         # path: instance_ip.txt
 
       - name: Read EC2 Instance IP
         run: |
           INSTANCE_IP=$(cat instance_ip.txt)
-          echo "EC2 Instance IP: $INSTANCE_IP"  # Debugging output to check the IP
-          
+          echo "EC2 Instance IP: $INSTANCE_IP"
+
       - name: Sleep for 30 seconds to ensure the instance is ready 
         run: sleep 30
-      
+
+      - name: Add public key to EC2 authorized_keys
+        run: |
+          INSTANCE_IP=$(cat instance_ip.txt)
+          ssh -o StrictHostKeyChecking=no -i my-key-pair.pem ubuntu@$INSTANCE_IP "mkdir -p ~/.ssh && echo '${{ secrets.SSH_PUBLIC_KEY }}' >> ~/.ssh/authorized_keys"
+
       - name: Set up Ansible inventory file
         run: |
           echo "[aws_servers]" > inventory.ini
-          echo "$(cat instance_ip.txt) ansible_user=ubuntu ansible_ssh_private_key_file=my-key-pair.pem ansible_ssh_extra_args='-o StrictHostKeyChecking=no -o KbdInteractiveAuthentication=no -o PreferredAuthentications=publickey -o PasswordAuthentication=no'" >> inventory.ini
+          echo "$(cat instance_ip.txt) ansible_user=ubuntu ansible_ssh_private_key_file=my-key-pair.pem" >> inventory.ini
 
       - name: Debug Inventory File (optional)
         run: cat inventory.ini
-        
+
       - name: Set up SSH private key
         run: |
           echo "${{ secrets.SSH_KEY }}" > my-key-pair.pem
-          chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
+          chmod 600 my-key-pair.pem
 
-      - name : Check open ports 
+      - name: Create ansible.cfg file
         run: |
-          ss -ntlp
-          
+          echo "[defaults]" > ansible.cfg
+          echo "inventory = inventory.ini" >> ansible.cfg
+          echo "host_key_checking = False" >> ansible.cfg
+          echo "interpreter_python = /usr/bin/python3" >> ansible.cfg
+
+      - name: Debug Ansible Config File (optional)
+        run: cat ansible.cfg
+
+      - name: Run Ansible All for Debugging
+        run: |
+          ansible all -i inventory.ini -m ping -vvvv
+
       - name: Run Ansible Playbook
         run: |
           ansible-playbook -i inventory.ini deploy.yml
-
-  # Docker Job
- # docker:
-   # runs-on: ubuntu-latest
-
- #   needs: ansible  # Ensures this job runs only after the ansible job completes
-
-  #  steps:
-   #   - name: Checkout code
-     #   uses: actions/checkout@v2
-
-    #  - name: Set up Docker
-    #    run: |
-     #     sudo apt update
-     #     sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-
-    #  - name: Install SSH client
-    #    run: sudo apt-get install -y openssh-client
-
-    #  - name: SSH into EC2 and run Docker commands
-    #    run: |
-    #      ssh -o StrictHostKeyChecking=no -i ${{ secrets.AWS_SSH_KEY }} ec2-user@${{ steps.terraform.outputs.instance_ip }} << 'EOF'
-            # Pull the Docker image if needed (e.g., from Docker Hub or local registry)
-     #       docker pull nginx:latest
-            
-            # Run the Docker container
-      #      docker run -d -p 80:80 nginx:latest
-     #     EOF
-
-     # - name: Build Docker image
-      #  run: |
-     #     docker build -t nginx-image -f Dockerfile .
-
-    #  - name: Run Docker container
-     #   run: |
-     #     docker run -d -p 80:80 nginx-image
