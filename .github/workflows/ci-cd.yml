@@ -107,4 +107,4 @@ jobs:
           
       - name: Run Ansible Playbook with Debug Logging
         run: |
-          ansible-playbook -i inventory.ini deploy.yml -vvvv  # verbose logging
+          ansible-playbook -i inventory.ini deploy.yml  # -vvvv  # verbose logging
