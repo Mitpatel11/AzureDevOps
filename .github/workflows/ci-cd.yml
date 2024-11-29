@@ -49,7 +49,6 @@ jobs:
           path: instance_ip.txt
 
   # Ansible Job
-  # Ansible Job
   ansible:
     runs-on: ubuntu-latest
     needs: terraform  # Ensures the Terraform job runs first
@@ -82,6 +81,15 @@ jobs:
           sudo add-apt-repository --yes --update ppa:ansible/ansible
           sudo apt install -y ansible
 
+      - name: Set up Ansible configuration file
+        run: |
+          echo "[defaults]" > ansible.cfg
+          echo "host_key_checking = False" >> ansible.cfg
+          echo "private_key_file = my-key-pair.pem" >> ansible.cfg
+          echo "remote_user = ubuntu" >> ansible.cfg
+          echo "stdout_callback = debug" >> ansible.cfg
+          echo "interpreter_python = auto_silent" >> ansible.cfg
+
       - name: Set up Ansible inventory file
         run: |
           echo "[aws_servers]" > inventory.ini
@@ -94,10 +102,13 @@ jobs:
         run: |
           echo "${{ secrets.SSH_KEY }}" > my-key-pair.pem
           chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
-          
-      - name: Install SSL
+
+      - name: Wait for EC2 Instance Initialization
+        run: sleep 60
+
+      - name: Test SSH Connection Manually
         run: |
-          sudo apt update && sudo apt install openssl -y
+          ssh -o StrictHostKeyChecking=no -i my-key-pair.pem ubuntu@$(cat instance_ip.txt)
 
       - name: Debug Ansible Connectivity with Verbose Logging
         run: |
@@ -106,4 +117,3 @@ jobs:
       - name: Run Ansible Playbook with Debug Logging
         run: |
           ansible-playbook -i inventory.ini deploy.yml -vvvv  # Runs the playbook with verbose logging
-
