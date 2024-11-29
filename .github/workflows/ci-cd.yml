@@ -80,8 +80,7 @@ jobs:
           sudo apt install -y software-properties-common
           sudo add-apt-repository --yes --update ppa:ansible/ansible
           sudo apt install -y ansible
-          sudo apt-get update
-          sudo apt-get install --only-upgrade openssl ssh
+          
 
       - name: Set up Ansible configuration file
         run: |
@@ -106,6 +105,8 @@ jobs:
         run: |
           echo "${{ secrets.SSH_KEY }}" > my-key-pair.pem
           chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
+          sudo apt-get update
+          sudo apt-get install --only-upgrade openssl ssh
 
       - name: Add SSH private key to agent
         run: |
