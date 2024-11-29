@@ -105,11 +105,6 @@ jobs:
           echo "${{ secrets.SSH_KEY }}" > my-key-pair.pem
           chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
           
-
-      - name: Debug Ansible Connectivity with Verbose Logging
-        run: |
-          ansible all -i inventory.ini -m ping -vvvv  # Pings all hosts with detailed debug output
-
       - name: Run Ansible Playbook with Debug Logging
         run: |
           ansible-playbook -i inventory.ini deploy.yml -vvvv  # Runs the playbook with verbose logging
