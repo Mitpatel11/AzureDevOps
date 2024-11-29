@@ -112,13 +112,6 @@ jobs:
         run: |
           ssh -v -i my-key-pair.pem ubuntu@$(cat instance_ip.txt)
 
-      - name: Wait for EC2 Instance Initialization
-        run: sleep 60
-
-      - name: Test SSH Connection Manually
-        run: |
-          ssh -o StrictHostKeyChecking=no -i my-key-pair.pem ubuntu@$(cat instance_ip.txt)
-
       - name: Debug Ansible Connectivity with Verbose Logging
         run: |
           ansible all -i inventory.ini -m ping -vvvv  # Pings all hosts with detailed debug output
