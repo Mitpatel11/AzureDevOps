@@ -103,6 +103,15 @@ jobs:
           echo "${{ secrets.SSH_KEY }}" > my-key-pair.pem
           chmod 600 my-key-pair.pem  # Set permissions to read-only for the owner
 
+      - name: Add SSH private key to agent
+        run: |
+          eval $(ssh-agent -s)
+          ssh-add my-key-pair.pem
+
+      - name: Test SSH Connection Manually
+        run: |
+          ssh -v -i my-key-pair.pem ubuntu@$(cat instance_ip.txt)
+
       - name: Wait for EC2 Instance Initialization
         run: sleep 60
 
